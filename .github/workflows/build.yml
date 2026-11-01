@@ -1,0 +1,46 @@
+name: Build Mekanism 26.2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout Mekanism (pinned commit)
+        uses: actions/checkout@v6
+        with:
+          repository: mekanism/Mekanism
+          ref: ac2e47a6bb0a7d6228cafc28987b1f7603998283
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Build JARs
+        run: sh gradlew assemble --console=plain
+
+      - name: Collect JARs
+        run: |
+          mkdir out
+          for f in build/libs/*.jar; do
+            case "$(basename "$f")" in
+              *-api*|*-sources*|*-all*|*-javadoc*) ;;
+              *) cp "$f" out/ ;;
+            esac
+          done
+          ls -l out
+
+      - name: Upload JARs
+        uses: actions/upload-artifact@v4
+        with:
+          name: mekanism-26.2-jars
+          path: out/*.jar
+          if-no-files-found: error
+
+      - name: Server game tests (does not block the JARs)
+        continue-on-error: true
+        run: sh gradlew runGameTestServer --console=plain
